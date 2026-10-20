@@ -11,4 +11,6 @@ ENV RELEASE=${RELEASE}
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3t64 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/release/sentry-sample-rust /usr/local/bin/sample
 EXPOSE 8080
+# anyhow records a backtrace only when this is set
+ENV RUST_LIB_BACKTRACE=1
 CMD ["sample", "serve"]
