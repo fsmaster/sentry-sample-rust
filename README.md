@@ -73,6 +73,9 @@ let _guard = sentry::init((env::var("SENTRY_DSN").ok(), options));
 `Cargo.toml` has `debug = true` in release profile. Then the binary has file names and line numbers and
 Sentry can show them. Without it you get function names only.
 
+`/trigger` also takes an optional `"dsn"` in the body. The playground sends it when a visitor checks
+**Use my DSN**, then only this one event goes to their project (a separate client, the global one is untouched).
+
 ## Troubleshooting
 
 | Symptom | Why |

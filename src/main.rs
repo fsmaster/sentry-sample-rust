@@ -3,6 +3,7 @@
 //! cargo run -- serve   -> POST /trigger on :8080 (dashboard)
 use anyhow::{Context, Result};
 use std::env;
+use std::sync::Arc;
 
 fn read_config(path: &str) -> Result<String> {
     std::fs::read_to_string(path).with_context(|| format!("failed to read config {path}"))
@@ -53,7 +54,20 @@ fn main() {
         let run = v["run"].as_str().unwrap_or("manual");
         let kind = v["kind"].as_str().unwrap_or("error");
         let fresh = v["fresh"].as_bool().unwrap_or(true);
-        let id = generate(kind, run, fresh);
+        let id = match v["dsn"].as_str() {
+            // dashboard "Use my DSN": separate client + hub, only this event goes there
+            Some(dsn) => {
+                let mut opts = sentry::ClientOptions::default();
+                opts.environment = Some("playground".into());
+                let opts = sentry::apply_defaults(opts);
+                let client = Arc::new(sentry::Client::from_config((dsn, opts)));
+                let hub = Arc::new(sentry::Hub::new(Some(client.clone()), Arc::new(Default::default())));
+                let id = sentry::Hub::run(hub, || generate(kind, run, fresh));
+                client.flush(Some(std::time::Duration::from_secs(5)));
+                id
+            }
+            None => generate(kind, run, fresh),
+        };
         sentry::Hub::current().client().map(|c| c.flush(Some(std::time::Duration::from_secs(5))));
         let reply = serde_json::json!({ "event_id": id }).to_string();
         let _ = req.respond(tiny_http::Response::from_string(reply));
